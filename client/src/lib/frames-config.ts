@@ -5,7 +5,6 @@ export type Frame = {
 };
 
 export const FRAMES: Frame[] = [
-  { id: 1, name: "シンプル白枠", imageUrl: "/frames/frame1.svg" },
-  { id: 2, name: "カラフル", imageUrl: "/frames/frame2.svg" },
-  { id: 3, name: "きらきら", imageUrl: "/frames/frame3.svg" },
+  { id: 1, name: "フレーム1", imageUrl: "/frames/image1.png" },
+  { id: 2, name: "フレーム2", imageUrl: "/frames/image2.png" },
 ];
