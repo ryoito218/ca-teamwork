@@ -1,4 +1,4 @@
-name = "frame-camera-app"
+name = "ca-teamwork"
 main = "src/worker.ts"
 compatibility_date = "2024-09-23"
 
@@ -10,7 +10,3 @@ not_found_handling = "single-page-application"
 binding = "DB"
 database_name = "frame-camera-db"
 database_id = "your-d1-database-id"
-
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "frame-camera-frames"
