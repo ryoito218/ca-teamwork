@@ -1,0 +1,12 @@
+name = "frame-camera-app"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "frame-camera-db"
+database_id = "your-d1-database-id"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "frame-camera-frames"

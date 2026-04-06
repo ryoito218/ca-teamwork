@@ -1,0 +1,3 @@
+# R2バケットのパブリックURL
+# Cloudflareダッシュボードでバケットのパブリックアクセスを有効化した後に設定
+R2_PUBLIC_URL=https://pub-xxxxxxxxxxxx.r2.dev

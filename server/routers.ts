@@ -1,65 +1,60 @@
 import { TRPCError } from "@trpc/server";
+import { nanoid } from "nanoid";
 import { z } from "zod";
-import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { deleteFrame, insertFrame, listFrames } from "./db";
-import { storagePut } from "./storage";
-import { nanoid } from "nanoid";
+import { storageDelete, storagePut } from "./storage";
 
 export const appRouter = router({
   system: systemRouter,
-  auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return { success: true } as const;
-    }),
-  }),
 
   frames: router({
-    // Public: list all frames
-    list: publicProcedure.query(async () => {
-      return listFrames();
+    list: publicProcedure.query(async ({ ctx }) => {
+      return listFrames(ctx.env.DB);
     }),
 
-    // Public: upload a frame (receives base64 data URL)
     upload: publicProcedure
       .input(
         z.object({
           name: z.string().min(1).max(255),
           dataUrl: z.string().min(1),
           mimeType: z.string().default("image/png"),
-        })
+        }),
       )
-      .mutation(async ({ input }) => {
+      .mutation(async ({ input, ctx }) => {
         const base64Data = input.dataUrl.replace(/^data:[^;]+;base64,/, "");
-        const buffer = Buffer.from(base64Data, "base64");
+        const binaryStr = atob(base64Data);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+
         const suffix = nanoid(8);
         const ext = input.mimeType === "image/jpeg" ? "jpg" : "png";
         const fileKey = `frames/${suffix}.${ext}`;
 
-        const { url } = await storagePut(fileKey, buffer, input.mimeType);
-
-        await insertFrame({
-          name: input.name,
-          imageUrl: url,
+        const { url } = await storagePut(
+          ctx.env.BUCKET,
           fileKey,
-        });
+          bytes,
+          input.mimeType,
+          ctx.env.R2_PUBLIC_URL,
+        );
+
+        await insertFrame(ctx.env.DB, { name: input.name, imageUrl: url, fileKey });
 
         return { success: true, url };
       }),
 
-    // Public: delete a frame
     delete: publicProcedure
       .input(z.object({ id: z.number().int().positive() }))
-      .mutation(async ({ input }) => {
-        const frame = await deleteFrame(input.id);
+      .mutation(async ({ input, ctx }) => {
+        const frame = await deleteFrame(ctx.env.DB, input.id);
         if (!frame) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Frame not found" });
         }
+        await storageDelete(ctx.env.BUCKET, frame.fileKey);
         return { success: true };
       }),
   }),
