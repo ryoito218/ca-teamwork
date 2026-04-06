@@ -77,7 +77,13 @@ export default function Home() {
         canvas.height = photo.naturalHeight;
         ctx.drawImage(photo, 0, 0);
         frame.onload = () => {
-          ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+          // object-cover: scale frame to cover canvas while maintaining aspect ratio
+          const scale = Math.max(canvas.width / frame.naturalWidth, canvas.height / frame.naturalHeight);
+          const fw = frame.naturalWidth * scale;
+          const fh = frame.naturalHeight * scale;
+          const fx = (canvas.width - fw) / 2;
+          const fy = (canvas.height - fh) / 2;
+          ctx.drawImage(frame, fx, fy, fw, fh);
           resolve(canvas.toDataURL("image/jpeg", 0.92));
         };
         frame.onerror = () => reject(new Error("フレーム画像の読み込みに失敗しました"));
