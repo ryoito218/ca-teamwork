@@ -102,7 +102,13 @@ export default function Home() {
     canvas.height = video.videoHeight || 1280;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    // Front camera: mirror the captured photo to match the mirrored preview
+    if (facingMode === "user") {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); // reset transform
     const photoDataUrl = canvas.toDataURL("image/jpeg", 0.92);
     stopCamera();
     setCompositing(true);
@@ -115,7 +121,7 @@ export default function Home() {
     } finally {
       setCompositing(false);
     }
-  }, [selectedFrame, compositeOnCanvas, stopCamera]);
+  }, [selectedFrame, compositeOnCanvas, stopCamera, facingMode]);
 
   const handleGalleryFile = useCallback(async (file: File) => {
     if (!selectedFrame) return;
@@ -259,7 +265,7 @@ export default function Home() {
         {step === "capture" && mode === "camera" && (
           <div className="fixed inset-0 z-50 flex flex-col bg-black" style={{ height: "100dvh" }}>
             <div className="relative flex-1 overflow-hidden">
-              <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
+              <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" style={facingMode === "user" ? { transform: "scaleX(-1)" } : undefined} />
               {selectedFrame && (
                 <img src={selectedFrame.imageUrl} alt="frame overlay" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
               )}
