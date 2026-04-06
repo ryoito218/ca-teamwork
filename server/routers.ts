@@ -21,7 +21,12 @@ export const appRouter = router({
         }),
       )
       .mutation(async ({ input, ctx }) => {
-        await insertFrame(ctx.env.DB, { name: input.name, imageUrl: input.dataUrl });
+        try {
+          await insertFrame(ctx.env.DB, { name: input.name, imageUrl: input.dataUrl, createdAt: Date.now() });
+        } catch (e) {
+          console.error("D1 insert error:", e);
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: String(e) });
+        }
         return { success: true, url: input.dataUrl };
       }),
 

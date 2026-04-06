@@ -198,12 +198,12 @@ export default function Home() {
     stopCamera();
   };
 
-  // Compress image to fit D1 limits (~700KB base64)
+  // Compress image to fit D1 limits
   const compressImage = (dataUrl: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
-        const MAX = 1024;
+        const MAX = 512;
         let { width, height } = img;
         if (width > MAX || height > MAX) {
           if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
@@ -213,7 +213,9 @@ export default function Home() {
         canvas.width = width;
         canvas.height = height;
         canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL("image/png", 0.85));
+        // Try WebP for better compression, fallback to PNG
+        const webp = canvas.toDataURL("image/webp", 0.8);
+        resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/png"));
       };
       img.src = dataUrl;
     });
