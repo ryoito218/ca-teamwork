@@ -77,8 +77,8 @@ export default function Home() {
         canvas.height = photo.naturalHeight;
         ctx.drawImage(photo, 0, 0);
         frame.onload = () => {
-          // object-cover: scale frame to cover canvas while maintaining aspect ratio
-          const scale = Math.max(canvas.width / frame.naturalWidth, canvas.height / frame.naturalHeight);
+          // object-contain: scale frame to fit within canvas while maintaining aspect ratio
+          const scale = Math.min(canvas.width / frame.naturalWidth, canvas.height / frame.naturalHeight);
           const fw = frame.naturalWidth * scale;
           const fh = frame.naturalHeight * scale;
           const fx = (canvas.width - fw) / 2;
@@ -261,7 +261,7 @@ export default function Home() {
             <div className="relative flex-1 overflow-hidden">
               <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
               {selectedFrame && (
-                <img src={selectedFrame.imageUrl} alt="frame overlay" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
+                <img src={selectedFrame.imageUrl} alt="frame overlay" className="absolute inset-0 w-full h-full object-contain pointer-events-none" />
               )}
               {cameraError && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/80 px-6 text-center">
