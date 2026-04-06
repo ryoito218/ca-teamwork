@@ -173,7 +173,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-950 to-gray-950 text-white flex flex-col">
+    <div className="h-screen bg-gradient-to-b from-purple-950 to-gray-950 text-white flex flex-col overflow-hidden" style={{ height: "100dvh" }}>
       {/* Header */}
       <header className="flex items-center justify-center px-4 pt-safe-top py-3 border-b border-white/10">
         <div className="flex items-center gap-2">
@@ -257,9 +257,9 @@ export default function Home() {
 
         {/* ===== STEP 2: Capture ===== */}
         {step === "capture" && mode === "camera" && (
-          <div className="flex-1 flex flex-col">
-            <div className="relative flex-1 bg-black overflow-hidden">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+          <div className="fixed inset-0 z-50 flex flex-col bg-black" style={{ height: "100dvh" }}>
+            <div className="relative flex-1 overflow-hidden">
+              <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
               {selectedFrame && (
                 <img src={selectedFrame.imageUrl} alt="frame overlay" className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
               )}
@@ -277,7 +277,7 @@ export default function Home() {
                 </div>
               )}
             </div>
-            <div className="bg-black/90 px-6 py-4 flex items-center justify-between pb-safe-bottom">
+            <div className="bg-black/90 px-6 py-4 flex items-center justify-between pb-safe-bottom shrink-0">
               <Button onClick={handleReset} variant="ghost" className="text-white/60 hover:text-white">
                 <X className="w-5 h-5" />
               </Button>
