@@ -178,7 +178,7 @@ export default function Home() {
       <header className="flex items-center justify-center px-4 pt-safe-top py-3 border-b border-white/10">
         <div className="flex items-center gap-2">
           <Camera className="w-5 h-5 text-purple-300" />
-          <h1 className="text-base font-bold tracking-wide">Frame Camera</h1>
+          <h1 className="text-base font-bold tracking-wide">上等カメラ</h1>
         </div>
       </header>
 
