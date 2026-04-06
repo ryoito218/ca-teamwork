@@ -198,13 +198,37 @@ export default function Home() {
     stopCamera();
   };
 
+  // Compress image to fit D1 limits (~700KB base64)
+  const compressImage = (dataUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1024;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
+          else { width = Math.round((width * MAX) / height); height = MAX; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/png", 0.85));
+      };
+      img.src = dataUrl;
+    });
+  };
+
   // Upload frame file handler
   const handleUploadFile = (file: File) => {
     if (!file.type.startsWith("image/")) { toast.error("画像ファイルを選択してください"); return; }
-    setUploadMime(file.type);
     if (!uploadName) setUploadName(file.name.replace(/\.[^.]+$/, ""));
     const reader = new FileReader();
-    reader.onload = (e) => setUploadPreview(e.target?.result as string);
+    reader.onload = async (e) => {
+      const compressed = await compressImage(e.target?.result as string);
+      setUploadMime("image/png");
+      setUploadPreview(compressed);
+    };
     reader.readAsDataURL(file);
   };
 
