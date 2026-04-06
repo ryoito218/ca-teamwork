@@ -4,7 +4,6 @@ export const frames = sqliteTable("frames", {
   id: int("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   imageUrl: text("imageUrl").notNull(),
-  fileKey: text("fileKey").notNull(),
   createdAt: int("createdAt", { mode: "timestamp" })
     .$defaultFn(() => new Date())
     .notNull(),

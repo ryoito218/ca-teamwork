@@ -23,3 +23,4 @@ export async function deleteFrame(d1: D1Database, id: number) {
   await db.delete(frames).where(eq(frames.id, id));
   return result[0];
 }
+
