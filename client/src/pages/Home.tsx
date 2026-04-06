@@ -136,13 +136,34 @@ export default function Home() {
     reader.readAsDataURL(file);
   }, [selectedFrame, compositeOnCanvas]);
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!compositeImage) return;
-    const a = document.createElement("a");
-    a.href = compositeImage;
-    a.download = `frame-photo-${Date.now()}.jpg`;
-    a.click();
-    toast.success("画像を保存しました");
+    try {
+      const res = await fetch(compositeImage);
+      const blob = await res.blob();
+      const filename = `frame-photo-${Date.now()}.jpg`;
+      const file = new File([blob], filename, { type: "image/jpeg" });
+
+      // Use Web Share API on mobile (iOS/Android) to save to camera roll
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        toast.success("画像を保存しました");
+        return;
+      }
+
+      // Fallback for desktop
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("画像を保存しました");
+    } catch (e: any) {
+      if (e?.name !== "AbortError") {
+        toast.error("保存に失敗しました");
+      }
+    }
   };
 
   const handleReset = () => {
