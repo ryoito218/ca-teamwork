@@ -1,4 +1,4 @@
-name = "ca-teamworkv2"
+name = "ca-teamwork"
 main = "src/worker.ts"
 compatibility_date = "2024-09-23"
 
