@@ -1,5 +1,4 @@
-import { trpc } from "@/lib/trpc";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Camera,
@@ -10,51 +9,14 @@ import {
   X,
   CheckCircle,
   Loader2,
-  Trash2,
-  Upload,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { FRAMES } from "@/lib/frames-config";
 
 type Mode = "camera" | "gallery";
 type Step = "select-frame" | "capture" | "preview";
 
 export default function Home() {
-  const utils = trpc.useUtils();
-  const { data: frames = [], isLoading: framesLoading, error: framesError, refetch: refetchFrames } = trpc.frames.list.useQuery();
-
-  const uploadMutation = trpc.frames.upload.useMutation({
-    onSuccess: () => {
-      toast.success("フレームを追加しました");
-      utils.frames.list.invalidate();
-      setUploadPreview(null);
-      setUploadName("");
-      if (uploadInputRef.current) uploadInputRef.current.value = "";
-    },
-    onError: (e) => toast.error(`アップロード失敗: ${e.message}`),
-  });
-
-  const deleteMutation = trpc.frames.delete.useMutation({
-    onSuccess: () => {
-      toast.success("フレームを削除しました");
-      utils.frames.list.invalidate();
-    },
-    onError: (e) => toast.error(`削除失敗: ${e.message}`),
-  });
-
-  // Camera state
   const [selectedFrameId, setSelectedFrameId] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("camera");
   const [step, setStep] = useState<Step>("select-frame");
@@ -64,20 +26,11 @@ export default function Home() {
   const [compositing, setCompositing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Upload state
-  const [showUploadPanel, setShowUploadPanel] = useState(false);
-  const [uploadPreview, setUploadPreview] = useState<string | null>(null);
-  const [uploadName, setUploadName] = useState("");
-  const [uploadMime, setUploadMime] = useState("image/png");
-  const [dragging, setDragging] = useState(false);
-
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedFrame = frames.find((f) => f.id === selectedFrameId);
+  const selectedFrame = FRAMES.find((f) => f.id === selectedFrameId);
 
-  // Start camera
   const startCamera = useCallback(async () => {
     setCameraError(null);
     if (stream) stream.getTracks().forEach((t) => t.stop());
@@ -112,7 +65,6 @@ export default function Home() {
     if (videoRef.current && stream) videoRef.current.srcObject = stream;
   }, [stream]);
 
-  // Composite photo + frame
   const compositeOnCanvas = useCallback((photoSrc: string, frameUrl: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const canvas = document.createElement("canvas");
@@ -120,8 +72,6 @@ export default function Home() {
       if (!ctx) return reject(new Error("Canvas not supported"));
       const photo = new Image();
       const frame = new Image();
-      frame.crossOrigin = "anonymous";
-      photo.crossOrigin = "anonymous";
       photo.onload = () => {
         canvas.width = photo.naturalWidth;
         canvas.height = photo.naturalHeight;
@@ -138,7 +88,6 @@ export default function Home() {
     });
   }, []);
 
-  // Capture from camera
   const handleCapture = useCallback(async () => {
     if (!videoRef.current || !selectedFrame) return;
     const video = videoRef.current;
@@ -162,7 +111,6 @@ export default function Home() {
     }
   }, [selectedFrame, compositeOnCanvas, stopCamera]);
 
-  // Gallery file selected
   const handleGalleryFile = useCallback(async (file: File) => {
     if (!selectedFrame) return;
     const reader = new FileReader();
@@ -182,7 +130,6 @@ export default function Home() {
     reader.readAsDataURL(file);
   }, [selectedFrame, compositeOnCanvas]);
 
-  // Download
   const handleDownload = () => {
     if (!compositeImage) return;
     const a = document.createElement("a");
@@ -196,47 +143,6 @@ export default function Home() {
     setCompositeImage(null);
     setStep("select-frame");
     stopCamera();
-  };
-
-  // Compress image to fit D1 limits
-  const compressImage = (dataUrl: string): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const MAX = 512;
-        let { width, height } = img;
-        if (width > MAX || height > MAX) {
-          if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
-          else { width = Math.round((width * MAX) / height); height = MAX; }
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height);
-        // Try WebP for better compression, fallback to PNG
-        const webp = canvas.toDataURL("image/webp", 0.8);
-        resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/png"));
-      };
-      img.src = dataUrl;
-    });
-  };
-
-  // Upload frame file handler
-  const handleUploadFile = (file: File) => {
-    if (!file.type.startsWith("image/")) { toast.error("画像ファイルを選択してください"); return; }
-    if (!uploadName) setUploadName(file.name.replace(/\.[^.]+$/, ""));
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const compressed = await compressImage(e.target?.result as string);
-      setUploadMime("image/png");
-      setUploadPreview(compressed);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleUploadSubmit = () => {
-    if (!uploadPreview || !uploadName.trim()) { toast.error("フレーム名と画像を入力してください"); return; }
-    uploadMutation.mutate({ name: uploadName.trim(), dataUrl: uploadPreview, mimeType: uploadMime });
   };
 
   return (
@@ -275,129 +181,45 @@ export default function Home() {
               フレームを選択
             </h2>
 
-            {framesLoading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
-              </div>
-            ) : framesError ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 text-white/60">
-                <p className="text-sm text-red-400">フレームの読み込みに失敗しました</p>
-                <Button onClick={() => refetchFrames()} variant="outline" size="sm" className="border-white/20 text-white/60">
-                  <RefreshCw className="w-3 h-3 mr-1" /> 再試行
-                </Button>
-              </div>
-            ) : frames.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 text-white/40">
-                <ImagePlus className="w-16 h-16 opacity-30" />
-                <p className="text-sm">フレームがまだ登録されていません</p>
-                <p className="text-xs">下の「フレームを追加」から登録してください</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                {frames.map((frame) => (
-                  <div key={frame.id} className="relative group">
-                    <button
-                      onClick={() => setSelectedFrameId(frame.id)}
-                      className={`w-full aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
-                        selectedFrameId === frame.id
-                          ? "border-purple-400 scale-95 ring-2 ring-purple-400/50"
-                          : "border-white/10 hover:border-white/30"
-                      } bg-white/5`}
-                    >
-                      <img src={frame.imageUrl} alt={frame.name} className="w-full h-full object-contain p-2" />
-                      {selectedFrameId === frame.id && (
-                        <div className="absolute top-1 right-1 bg-purple-500 rounded-full p-0.5">
-                          <CheckCircle className="w-3 h-3 text-white" />
-                        </div>
-                      )}
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 rounded-b-2xl">
-                        <p className="text-xs text-white truncate">{frame.name}</p>
-                      </div>
-                    </button>
-                    {/* Delete button */}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <button className="absolute top-2 left-2 bg-red-500/80 text-white rounded-full p-1 shadow">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>フレームを削除しますか？</AlertDialogTitle>
-                          <AlertDialogDescription>「{frame.name}」を削除します。この操作は取り消せません。</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>キャンセル</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteMutation.mutate({ id: frame.id })} className="bg-red-500 hover:bg-red-600">
-                            削除する
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Upload panel toggle */}
-            <button
-              onClick={() => setShowUploadPanel((v) => !v)}
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-dashed border-white/20 text-white/50 hover:border-purple-400/60 hover:text-white/80 transition-colors text-sm mb-3"
-            >
-              <Upload className="w-4 h-4" />
-              フレームを追加
-              {showUploadPanel ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </button>
-
-            {/* Upload panel */}
-            {showUploadPanel && (
-              <div className="bg-white/5 rounded-2xl p-4 space-y-3 mb-4 border border-white/10">
-                <div
-                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                    dragging ? "border-purple-400 bg-purple-900/30" : "border-white/20 hover:border-purple-400/60"
-                  }`}
-                  onClick={() => uploadInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handleUploadFile(f); }}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+              {FRAMES.map((frame) => (
+                <button
+                  key={frame.id}
+                  onClick={() => setSelectedFrameId(frame.id)}
+                  className={`relative w-full aspect-square rounded-2xl overflow-hidden border-2 transition-all ${
+                    selectedFrameId === frame.id
+                      ? "border-purple-400 scale-95 ring-2 ring-purple-400/50"
+                      : "border-white/10 hover:border-white/30"
+                  } bg-white/5`}
                 >
-                  {uploadPreview ? (
-                    <img src={uploadPreview} alt="preview" className="max-h-32 mx-auto object-contain rounded-lg" />
-                  ) : (
-                    <div className="flex flex-col items-center gap-1 text-white/30">
-                      <ImagePlus className="w-8 h-8" />
-                      <p className="text-xs">タップまたはドラッグ＆ドロップ</p>
+                  <img src={frame.imageUrl} alt={frame.name} className="w-full h-full object-contain p-2" />
+                  {selectedFrameId === frame.id && (
+                    <div className="absolute top-1 right-1 bg-purple-500 rounded-full p-0.5">
+                      <CheckCircle className="w-3 h-3 text-white" />
                     </div>
                   )}
-                </div>
-                <input ref={uploadInputRef} type="file" accept="image/*" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadFile(f); }} />
-                <input
-                  type="text"
-                  value={uploadName}
-                  onChange={(e) => setUploadName(e.target.value)}
-                  placeholder="フレーム名を入力"
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                />
-                <Button
-                  onClick={handleUploadSubmit}
-                  disabled={!uploadPreview || !uploadName.trim() || uploadMutation.isPending}
-                  className="w-full bg-purple-600 hover:bg-purple-700 rounded-xl"
-                >
-                  {uploadMutation.isPending ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 追加中...</> : <><Upload className="w-4 h-4 mr-2" /> 追加する</>}
-                </Button>
-              </div>
-            )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 rounded-b-2xl">
+                    <p className="text-xs text-white truncate">{frame.name}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
 
-            {/* Proceed buttons */}
             {selectedFrameId && (
               <div className="space-y-3 mt-2">
                 <p className="text-center text-sm text-white/60">「{selectedFrame?.name}」を選択中</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <Button onClick={() => { setMode("camera"); setStep("capture"); }} className="bg-purple-600 hover:bg-purple-700 h-12 rounded-xl">
+                  <Button
+                    onClick={() => { setMode("camera"); setStep("capture"); }}
+                    className="bg-purple-600 hover:bg-purple-700 h-12 rounded-xl"
+                  >
                     <Camera className="w-4 h-4 mr-2" /> カメラで撮影
                   </Button>
-                  <Button onClick={() => { setMode("gallery"); fileInputRef.current?.click(); }} variant="outline" className="border-white/20 text-white hover:bg-white/10 h-12 rounded-xl">
+                  <Button
+                    onClick={() => { setMode("gallery"); fileInputRef.current?.click(); }}
+                    variant="outline"
+                    className="border-white/20 text-white hover:bg-white/10 h-12 rounded-xl"
+                  >
                     <ImagePlus className="w-4 h-4 mr-2" /> ギャラリーから
                   </Button>
                 </div>
@@ -439,7 +261,11 @@ export default function Home() {
               >
                 <div className="w-12 h-12 rounded-full bg-white" />
               </button>
-              <Button onClick={() => setFacingMode((p) => p === "environment" ? "user" : "environment")} variant="ghost" className="text-white/60 hover:text-white">
+              <Button
+                onClick={() => setFacingMode((p) => p === "environment" ? "user" : "environment")}
+                variant="ghost"
+                className="text-white/60 hover:text-white"
+              >
                 <SwitchCamera className="w-5 h-5" />
               </Button>
             </div>
@@ -458,10 +284,18 @@ export default function Home() {
               )}
             </div>
             <div className="mt-4 space-y-3">
-              <Button onClick={handleDownload} disabled={!compositeImage} className="w-full bg-purple-600 hover:bg-purple-700 h-12 rounded-xl text-base font-semibold">
+              <Button
+                onClick={handleDownload}
+                disabled={!compositeImage}
+                className="w-full bg-purple-600 hover:bg-purple-700 h-12 rounded-xl text-base font-semibold"
+              >
                 <Download className="w-5 h-5 mr-2" /> 画像を保存
               </Button>
-              <Button onClick={handleReset} variant="outline" className="w-full border-white/20 text-white hover:bg-white/10 h-12 rounded-xl">
+              <Button
+                onClick={handleReset}
+                variant="outline"
+                className="w-full border-white/20 text-white hover:bg-white/10 h-12 rounded-xl"
+              >
                 <RefreshCw className="w-4 h-4 mr-2" /> もう一度撮影する
               </Button>
             </div>
@@ -469,7 +303,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* Hidden file inputs */}
+      {/* Hidden file input for gallery */}
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) handleGalleryFile(f); e.target.value = ""; }} />
     </div>
